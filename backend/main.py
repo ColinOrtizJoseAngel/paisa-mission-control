@@ -22,13 +22,17 @@ app = FastAPI(
 )
 
 # --- Middleware ---
-origins = ["http://localhost:3000"]
+origins = [
+    "http://localhost:3000",
+    "https://paisa-mission-control.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://paisa-mission-control.vercel.app"],  
+    allow_origins=origins,  # Use the list you defined
     allow_credentials=True,
-    allow_methods=["*"],  
-    allow_headers=["*"],  
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- Security & JWT Configuration ---

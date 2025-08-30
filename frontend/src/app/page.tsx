@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; 
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const router = useRouter(); 
+  const router = useRouter();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -25,7 +25,12 @@ export default function LoginPage() {
       formData.append('username', email);
       formData.append('password', password);
 
-      const response = await fetch('http://127.0.0.1:8000/token', {
+      // --- CAMBIO PRINCIPAL ---
+      // Ahora, la URL de la API se lee desde una variable de entorno.
+      // Esto hace que el código sea flexible para desarrollo y producción.
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
+      const response = await fetch(`${apiUrl}/token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -40,12 +45,18 @@ export default function LoginPage() {
 
       const data = await response.json();
       
+      // Guardar el token en localStorage
       localStorage.setItem('accessToken', data.access_token);
       
+      // Redirigir a la página Home
       router.push('/home');
 
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Ocurrió un error inesperado.');
+      }
     }
   };
 

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; 
+import { useRouter } from 'next/navigation';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -10,7 +10,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const router = useRouter(); 
+  const router = useRouter();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -28,7 +28,11 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/register/', {
+      // --- CAMBIO PRINCIPAL ---
+      // Se lee la URL de la API desde la variable de entorno
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
+      const response = await fetch(`${apiUrl}/register/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -41,20 +45,20 @@ export default function RegisterPage() {
       });
 
       if (!response.ok) {
-        // Si el backend devuelve un error (ej: email ya existe)
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Ocurrió un error al registrar.');
       }
 
-      const newUser = await response.json();
-      console.log('Usuario registrado con éxito:', newUser);
-      
       alert('¡Registro exitoso! Serás redirigido para iniciar sesión.');
-      
       router.push('/');
 
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      // Corrección de tipo para cumplir con las reglas de Vercel
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Ocurrió un error inesperado.');
+      }
     }
   };
 
@@ -130,3 +134,4 @@ export default function RegisterPage() {
     </main>
   );
 }
+

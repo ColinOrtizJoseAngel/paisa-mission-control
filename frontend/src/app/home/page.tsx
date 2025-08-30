@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 // --- Types ---
@@ -8,28 +8,20 @@ type Mission = {
   id: number;
   title: string;
   description: string | null;
-  status: 'Pending' | 'In Progress' | 'Completed';
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
 };
 
 type Astronaut = {
   id: number;
   name: string;
   email: string;
+  missions: Mission[];
 };
+
 
 // --- Components ---
 
-const AstronautFormModal = ({
-  isOpen,
-  onClose,
-  onSuccess,
-  astronaut,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-  astronaut?: Astronaut | null;
-}) => {
+const AstronautFormModal = ({ isOpen, onClose, onSuccess, astronaut }: { isOpen: boolean; onClose: () => void; onSuccess: () => void; astronaut?: Astronaut | null; }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -38,15 +30,12 @@ const AstronautFormModal = ({
   const isEditMode = !!astronaut;
 
   useEffect(() => {
-    if (isOpen && astronaut) {
-      setName(astronaut.name);
-      setEmail(astronaut.email);
-    } else if (isOpen) {
-      setName('');
-      setEmail('');
+    if (isOpen) {
+      setName(isEditMode ? astronaut.name : '');
+      setEmail(isEditMode ? astronaut.email : '');
+      setError('');
     }
-    setError('');
-  }, [isOpen, astronaut]);
+  }, [isOpen, astronaut, isEditMode]);
 
   if (!isOpen) return null;
 
@@ -62,7 +51,8 @@ const AstronautFormModal = ({
     }
 
     const token = localStorage.getItem('accessToken');
-    const url = isEditMode ? `http://127.0.0.1:8000/astronauts/${astronaut.id}` : 'http://127.0.0.1:8000/astronauts/';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+    const url = isEditMode ? `${apiUrl}/astronauts/${astronaut.id}` : `${apiUrl}/astronauts/`;
     const method = isEditMode ? 'PUT' : 'POST';
 
     try {
@@ -81,8 +71,12 @@ const AstronautFormModal = ({
       }
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Ocurrió un error inesperado.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -112,122 +106,139 @@ const AstronautFormModal = ({
   );
 };
 
-const MissionsModal = ({
-  isOpen,
-  onClose,
-  astronaut,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  astronaut: Astronaut | null;
-}) => {
-  const [missions, setMissions] = useState<Mission[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+
+const MissionModal = ({ isOpen, onClose, astronaut, onSuccess }: { isOpen: boolean; onClose: () => void; astronaut: Astronaut | null; onSuccess: () => void; }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const fetchMissions = async () => {
-      if (!astronaut) return;
-      setIsLoading(true);
-      const token = localStorage.getItem('accessToken');
-      try {
-        const response = await fetch(`http://127.0.0.1:8000/astronauts/${astronaut.id}/missions/`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error('Failed to fetch missions.');
-        const data = await response.json();
-        setMissions(data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     if (isOpen) {
-      fetchMissions();
+      setTitle('');
+      setDescription('');
+      setError('');
     }
-  }, [isOpen, astronaut]);
-  
-  const handleCreateMission = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!title || !astronaut) return;
-
-    const token = localStorage.getItem('accessToken');
-    try {
-        const response = await fetch(`http://127.0.0.1:8000/astronauts/${astronaut.id}/missions/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({ title, description, status: 'Pending' }),
-        });
-        if (!response.ok) throw new Error('Failed to create mission.');
-        const newMission = await response.json();
-        setMissions([...missions, newMission]);
-        setTitle('');
-        setDescription('');
-    } catch (error) {
-        console.error(error);
-    }
-  };
+  }, [isOpen]);
 
   if (!isOpen || !astronaut) return null;
 
+  const handleAddMission = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!title) {
+      setError('El título de la misión es obligatorio.');
+      return;
+    }
+    
+    setIsLoading(true);
+    const token = localStorage.getItem('accessToken');
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+    
+    try {
+      const response = await fetch(`${apiUrl}/astronauts/${astronaut.id}/missions/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title, description, status: 'PENDING' }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'No se pudo añadir la misión.');
+      }
+
+      onSuccess();
+      setTitle('');
+      setDescription('');
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Ocurrió un error inesperado.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
-      <div className="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-2xl">
+      <div className="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-lg">
         <h2 className="text-2xl font-bold mb-4">Misiones de {astronaut.name}</h2>
-        <div className="mb-6">
-            <h3 className="text-xl font-semibold mb-3">Asignar Nueva Misión</h3>
-            <form onSubmit={handleCreateMission} className="flex flex-col sm:flex-row gap-4">
-                <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Título de la misión" className="flex-grow bg-gray-700 border border-gray-600 rounded-md p-2 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500" />
-                <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Descripción (opcional)" className="flex-grow bg-gray-700 border border-gray-600 rounded-md p-2 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500" />
-                <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-150">Asignar</button>
-            </form>
+        
+        <div className="mb-6 max-h-48 overflow-y-auto">
+          {astronaut.missions.length > 0 ? (
+            <ul className="list-disc list-inside space-y-2">
+              {astronaut.missions.map(mission => (
+                <li key={mission.id}>
+                  <strong className="font-semibold">{mission.title}</strong> ({mission.status})
+                  {mission.description && <p className="text-sm text-gray-400 ml-5">{mission.description}</p>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-400">Este astronauta no tiene misiones asignadas.</p>
+          )}
         </div>
-        <div>
-            <h3 className="text-xl font-semibold mb-3">Misiones Asignadas</h3>
-            {isLoading ? <p>Cargando misiones...</p> : (
-                <ul className="space-y-3 max-h-60 overflow-y-auto">
-                    {missions.length > 0 ? missions.map(mission => (
-                        <li key={mission.id} className="bg-gray-700 p-3 rounded-md">
-                            <p className="font-bold">{mission.title}</p>
-                            <p className="text-sm text-gray-400">{mission.description}</p>
-                            <span className="text-xs text-yellow-400">{mission.status}</span>
-                        </li>
-                    )) : <p className="text-gray-400">Este astronauta no tiene misiones asignadas.</p>}
-                </ul>
-            )}
-        </div>
-        <div className="flex justify-end mt-6">
-          <button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded transition duration-150">Cerrar</button>
-        </div>
+
+        <hr className="border-gray-600 my-4" />
+
+        <h3 className="text-xl font-bold mb-4">Añadir Nueva Misión</h3>
+        <form onSubmit={handleAddMission}>
+          {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
+          <div className="mb-4">
+            <label htmlFor="mission-title" className="block text-sm font-medium text-gray-300 mb-1">Título</label>
+            <input type="text" id="mission-title" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white" />
+          </div>
+          <div className="mb-4">
+            <label htmlFor="mission-desc" className="block text-sm font-medium text-gray-300 mb-1">Descripción (Opcional)</label>
+            <textarea id="mission-desc" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white" rows={2}></textarea>
+          </div>
+          <div className="flex justify-end gap-4 mt-6">
+            <button type="button" onClick={onClose} disabled={isLoading} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded">Cerrar</button>
+            <button type="submit" disabled={isLoading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">{isLoading ? 'Añadiendo...' : 'Añadir Misión'}</button>
+          </div>
+        </form>
       </div>
     </div>
   );
 };
+
 
 // --- Main Page Component ---
 export default function HomePage() {
   const [astronauts, setAstronauts] = useState<Astronaut[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [isMissionsModalOpen, setIsMissionsModalOpen] = useState(false);
+  
+  const [isAstroModalOpen, setIsAstroModalOpen] = useState(false);
+  const [isMissionModalOpen, setIsMissionModalOpen] = useState(false);
+  
   const [selectedAstronaut, setSelectedAstronaut] = useState<Astronaut | null>(null);
   const router = useRouter();
 
-  const fetchAstronauts = async () => {
+  const handleLogout = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('accessToken');
+    }
+    router.push('/');
+  }, [router]);
+
+  const fetchAstronauts = useCallback(async () => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
-      router.push('/');
+      handleLogout();
       return;
     }
+    
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/astronauts/', {
+      const response = await fetch(`${apiUrl}/astronauts/`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
@@ -237,52 +248,58 @@ export default function HomePage() {
       }
       const data: Astronaut[] = await response.json();
       setAstronauts(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Ocurrió un error inesperado.');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [handleLogout]);
 
   useEffect(() => {
     fetchAstronauts();
-  }, []);
+  }, [fetchAstronauts]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    router.push('/');
-  };
 
   const openCreateModal = () => {
     setSelectedAstronaut(null);
-    setIsFormModalOpen(true);
+    setIsAstroModalOpen(true);
   };
   
   const openEditModal = (astronaut: Astronaut) => {
     setSelectedAstronaut(astronaut);
-    setIsFormModalOpen(true);
+    setIsAstroModalOpen(true);
   };
 
-  const openMissionsModal = (astronaut: Astronaut) => {
+  const openMissionModal = (astronaut: Astronaut) => {
     setSelectedAstronaut(astronaut);
-    setIsMissionsModalOpen(true);
+    setIsMissionModalOpen(true);
   };
 
   const handleDelete = async (astronautId: number) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar a este astronauta?')) {
+    if (typeof window !== 'undefined' && !window.confirm('¿Estás seguro de que quieres eliminar a este astronauta?')) {
       return;
     }
     const token = localStorage.getItem('accessToken');
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
     try {
-      const response = await fetch(`http://127.0.0.1:8000/astronauts/${astronautId}`, {
+      const response = await fetch(`${apiUrl}/astronauts/${astronautId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
       if (!response.ok) throw new Error('No se pudo eliminar el astronauta.');
+      
       await fetchAstronauts();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Ocurrió un error inesperado.');
+      }
     }
   };
 
@@ -293,16 +310,18 @@ export default function HomePage() {
   return (
     <>
       <AstronautFormModal 
-        isOpen={isFormModalOpen}
-        onClose={() => setIsFormModalOpen(false)}
+        isOpen={isAstroModalOpen}
+        onClose={() => setIsAstroModalOpen(false)}
         onSuccess={fetchAstronauts}
         astronaut={selectedAstronaut}
       />
-      <MissionsModal
-        isOpen={isMissionsModalOpen}
-        onClose={() => setIsMissionsModalOpen(false)}
+      <MissionModal
+        isOpen={isMissionModalOpen}
+        onClose={() => setIsMissionModalOpen(false)}
         astronaut={selectedAstronaut}
+        onSuccess={fetchAstronauts}
       />
+
       <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-8">
         <div className="max-w-6xl mx-auto">
           <header className="flex flex-col sm:flex-row justify-between items-center mb-8">
@@ -335,8 +354,8 @@ export default function HomePage() {
                         <p className="text-gray-200 whitespace-no-wrap">{astro.email}</p>
                       </td>
                       <td className="px-5 py-4 border-b border-gray-700 text-sm whitespace-nowrap">
-                        <button onClick={() => openMissionsModal(astro)} className="bg-green-600 hover:bg-green-500 text-white font-semibold py-1 px-3 rounded text-xs mr-2 transition duration-150">Misiones</button>
-                        <button onClick={() => openEditModal(astro)} className="text-indigo-400 hover:text-indigo-300 font-semibold mr-2 transition duration-150">Editar</button>
+                        <button onClick={() => openMissionModal(astro)} className="text-green-400 hover:text-green-300 font-semibold mr-4 transition duration-150">Misiones</button>
+                        <button onClick={() => openEditModal(astro)} className="text-indigo-400 hover:text-indigo-300 font-semibold mr-4 transition duration-150">Editar</button>
                         <button onClick={() => handleDelete(astro.id)} className="text-red-400 hover:text-red-300 font-semibold transition duration-150">Eliminar</button>
                       </td>
                     </tr>

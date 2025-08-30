@@ -143,7 +143,8 @@ const MissionModal = ({ isOpen, onClose, astronaut, onSuccess }: { isOpen: boole
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ title, description, status: 'PENDING' }),
+        body: JSON.stringify({ title: title, description: description }),
+
       });
 
       if (!response.ok) {

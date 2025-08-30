@@ -51,7 +51,7 @@ const AstronautFormModal = ({ isOpen, onClose, onSuccess, astronaut }: { isOpen:
     }
 
     const token = localStorage.getItem('accessToken');
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://paisa-mission-control.onrender.com';
     const url = isEditMode ? `${apiUrl}/astronauts/${astronaut.id}` : `${apiUrl}/astronauts/`;
     const method = isEditMode ? 'PUT' : 'POST';
 
@@ -134,7 +134,7 @@ const MissionModal = ({ isOpen, onClose, astronaut, onSuccess }: { isOpen: boole
     
     setIsLoading(true);
     const token = localStorage.getItem('accessToken');
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://paisa-mission-control.onrender.com';
     
     try {
       const response = await fetch(`${apiUrl}/astronauts/${astronaut.id}/missions/`, {
@@ -235,7 +235,7 @@ export default function HomePage() {
       return;
     }
     
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://paisa-mission-control.onrender.com';
 
     try {
       const response = await fetch(`${apiUrl}/astronauts/`, {
@@ -284,7 +284,7 @@ export default function HomePage() {
       return;
     }
     const token = localStorage.getItem('accessToken');
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://paisa-mission-control.onrender.com';
     try {
       const response = await fetch(`${apiUrl}/astronauts/${astronautId}`, {
         method: 'DELETE',

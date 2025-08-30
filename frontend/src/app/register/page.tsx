@@ -30,7 +30,7 @@ export default function RegisterPage() {
     try {
       // --- CAMBIO PRINCIPAL ---
       // Se lee la URL de la API desde la variable de entorno
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://paisa-mission-control.onrender.com';
 
       const response = await fetch(`${apiUrl}/register/`, {
         method: 'POST',

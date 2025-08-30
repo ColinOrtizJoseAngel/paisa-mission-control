@@ -28,7 +28,7 @@ export default function LoginPage() {
       // --- CAMBIO PRINCIPAL ---
       // Ahora, la URL de la API se lee desde una variable de entorno.
       // Esto hace que el código sea flexible para desarrollo y producción.
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://paisa-mission-control.onrender.com';
 
       const response = await fetch(`${apiUrl}/token`, {
         method: 'POST',
